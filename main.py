@@ -1,27 +1,35 @@
-import random
-import copy
 import pandas as pd
 import os
+import random
+import copy
+import numpy as np
 
+desired_width = 320
+pd.set_option('display.width', desired_width)
+np.set_printoptions(linewidth=desired_width)
+pd.set_option('display.max_columns', 10)
 
-def clear_console(): return os.system('cls')
-
-
-COURSES = [
-            ['AI 6H 0 0 2 0', 'AI 6G 0 1 2 1', 'AI 6F 0 2 2 2', 'AI 6J 1 0 3 0', 'AI 6D 1 1 3 1', 'AI 6B 1 2 3 2',
-             'AI 6E 1 2 3 2', 'AI 6C 1 3 3 3', 'AI 6A 2 2 4 2'],
-            ['PDC 6C 0 0 2 0', 'PDC 6E 0 0 2 0', 'PDC 6F 0 1 2 1', 'PDC 6D 0 3 2 3', 'PDC 6A 1 1 3 1',
-             'PDC 6B 1 3 3 3', 'PDC 8A 1 5 3 5'],
-            ['DIP 6A 0 0 2 0', 'DIP 6B 0 2 2 2', 'DIP 6B 0 3 2 3'],
-            ['SE 6A 0 1 3 1', 'SE 6B 1 1 3 1', 'SE 6E 1 3 3 3', 'SE 6C 1 1 3 1', 'SE 6D 1 2 3 2',
-             'SE 6F 1 0 4 0'],
-            ['OB 6A 1 4 3 4', 'OB 6B 0 5 2 5']
-]
-COURSES_NAME = ['AI', 'PDC', 'DIP', 'SE', 'OB']
+COURSES = []
 FITNESS_CONDITIONS = []
-TIME = ['8:30-10:00', '10:00-11:30', '11:30-1:00', '1:00-2:30', '2:30-4:00', '4:00-5:30']
-DAY = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY']
+COURSES_NAME = ["Software Engineering", "Digital Image Processing", "Parallel & Dist Computing",
+                "Organizational Behaviour", "Artificial Intelligence"]
 
+for i in range(5):
+    COURSES.append([])
+
+
+CLASSROOMS = ["Seminar Hall", "CS-2", "CS-3", "CS-4", "CS-5", "CS-6", "CS-7", "CS-9", "CS-10", "CS-11",
+              "CS-15", "CS-16", "E&M-1",  "E&M-2", "E&M-3", "E&M-4", "E&M-5", "E&M-11", "CE-1", "CE-2",
+              "CE-3", "CS-1", "CS-8", "E&M-16", "English Lab-1", "English Lab-2", "English Lab-3",
+              "English Lab-4", "Lab(CS-1)", "Lab(CS-2A)", "Lab(CS-2B)", "Lab(CS-4)", "Lab(CS-6)",
+              "Lab(CS-8)", "Lab(CS-9)", "Physics Lab", "Micro Lab", "Physics Lab", "Micro Lab",
+              "Embedded Lab"]
+
+TIME = ['8:30-10:00', '10:00-11:30', '11:30-1:00', '1:00-2:30', '2:30-4:00', '4:00-5:30', '5:30-7:00']
+df = pd.read_csv('Schedule.csv')
+dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+days = [0, 0, 0, 0, 0, 0]
+start = [0, 0, 0, 0, 0, 0]
 POPULATION = []
 BUFFER = []
 POPULATION_SIZE = 500
@@ -30,7 +38,26 @@ CROSSOVER = 0.4
 MUTATION = 0.4
 
 
+def clear_console(): return os.system('cls')
+
+
+def read_excel():
+    index = 0
+    row = 0
+    while row < len(df):
+        while row < len(df) and (str(df.iloc[row][0])).find(dayNames[index]) == -1:
+            row += 1
+        start[index] = row
+        while row < len(df) and (str(df.iloc[row][0])).find(dayNames[index+1]) == -1:
+            days[index] += 1
+            row += 1
+        index += 1
+        if dayNames[index-1] == 'Saturday':
+            break
+
+
 def take_user_input():
+    print(COURSES_NAME)
     print('Choose the off day')
     print('#0 for Monday')
     print('#1 for Tuesday')
@@ -60,6 +87,51 @@ def take_user_input():
     FITNESS_CONDITIONS.append(first)
 
 
+def isnan(value):
+    try:
+        import math
+        return math.isnan(float(value))
+    except:
+        return False
+
+
+def filter_courses():
+    for _i in range(len(days)):
+        itreration = start[_i]
+        while itreration < start[_i] + days[_i] - 1:
+            course = 0
+            check = 0
+            for j in (df.iloc[itreration]):
+                if not isnan(j):
+                    if j not in CLASSROOMS and j.find(dayNames[_i]) == -1:
+                        for k in range(len(COURSES_NAME)):
+                            if j.find(COURSES_NAME[k]) != -1:
+                                if len(j) - len(COURSES_NAME[k]) <= 10:
+                                    course_data = j + " " + str(_i) + " " + str(course)
+                                    COURSES[k].append(course_data)
+                check += 1
+                if check % 9 == 0:
+                    course += 1
+            itreration += 1
+
+
+def combine():
+    for _i in range(len(COURSES)):
+        avail = len(COURSES[_i])
+        j = 0
+        while j < avail:
+            section = COURSES[_i][j].split()[-3]
+            k = j + 1
+            while k < avail:
+                _split = COURSES[_i][k].split()
+                if _split[-3] == section:
+                    COURSES[_i][j] += " " + _split[-2] + " " + _split[-1]
+                    del COURSES[_i][k]
+                    avail -= 1
+                k += 1
+            j += 1
+
+
 class Sample:
     def __init__(self, timetable, fitness_val):
         self.timetable = timetable,
@@ -77,14 +149,14 @@ class Sample:
         _section = ""
         days_count = 0
         for _itr in self.timetable:
-            for days in _itr:
+            for day in _itr:
                 time_count = 0
-                for time in days:
+                for time in day:
                     index = 0
                     for course in time:
                         if course.find(course_name) != -1:
                             _split = course.split()
-                            _section = _split[1]
+                            _section = _split[-1]
                             _days.append(days_count)
                             _time.append(time_count)
                             del time[index]
@@ -139,17 +211,22 @@ def calculate_fitness(tt):
 
 def generate_timetable():
     tt = []
-    for _i in range(5):
+    for _i in range(6):
         tt.append([])
-        for j in range(6):
+        for j in range(7):
             tt[_i].append([])
 
     for _i in range(5):
         index = random.randint(0, len(COURSES[_i])-1)
         _split = COURSES[_i][index].split()
-        course = _split[0] + " " + _split[1]
-        tt[int(_split[2])][int(_split[3])].append(course)
-        tt[int(_split[4])][int(_split[5])].append(course)
+        j = 0
+        course = ""
+        while j < len(_split) - 5:
+            course += _split[j] + " "
+            j += 1
+        course += _split[-5]
+        tt[int(_split[-4])][int(_split[-3])].append(course)
+        tt[int(_split[-2])][int(_split[-1])].append(course)
     return tt
 
 
@@ -199,10 +276,16 @@ def apply_mutation():
                 break
             _index += 1
         index = random.randint(0, (len(COURSES[_index])-1))
+
         _split = COURSES[_index][index].split()
-        course = _split[0] + " " + _split[1]
-        mutant.timetable[0][int(_split[2])][int(_split[3])].append(course)
-        mutant.timetable[0][int(_split[4])][int(_split[5])].append(course)
+        j = 0
+        course = ""
+        while j < len(_split) - 5:
+            course += _split[j] + " "
+            j += 1
+        course += _split[-5]
+        mutant.timetable[0][int(_split[-4])][int(_split[-3])].append(course)
+        mutant.timetable[0][int(_split[-2])][int(_split[-1])].append(course)
         BUFFER.append(mutant)
 
 
@@ -214,6 +297,11 @@ def buffer_to_population():
         POPULATION.append(BUFFER[_i])
     BUFFER.clear()
 
+
+read_excel()
+del dayNames[-1]
+filter_courses()
+combine()
 
 take_user_input()
 
@@ -242,15 +330,30 @@ else:
     print("Iteration Limit Reached (Best Samples)")
 
 
-df_0 = pd.DataFrame(POPULATION[0].timetable[0], columns=TIME, index=DAY)
+df_0 = pd.DataFrame(POPULATION[0].timetable[0], columns=TIME, index=dayNames)
 print(df_0)
-print('--------------------------------------------------------------------------')
-df_1 = pd.DataFrame(POPULATION[1].timetable[0], columns=TIME, index=DAY)
+# df_0.to_csv('timetable_0.csv')
+# writer = pd.ExcelWriter('timetable_0.xlsx')
+# df_0.to_excel(writer)
+# writer.save()
+print('------------------------------------------------------------------------------------------------'
+      '------------------------------------------------------------------------------------------------')
+df_1 = pd.DataFrame(POPULATION[1].timetable[0], columns=TIME, index=dayNames)
 print(df_1)
-print('--------------------------------------------------------------------------')
-df_2 = pd.DataFrame(POPULATION[2].timetable[0], columns=TIME, index=DAY)
-print(df_2)
+# df_1.to_csv('timetable_1.csv')
+# writer = pd.ExcelWriter('timetable_0.xlsx')
+# df_1.to_excel(writer)
+# writer.save()
+print('------------------------------------------------------------------------------------------------'
+      '4'
+      '------------------------------------------------------------------------------------------------')
 
+df_2 = pd.DataFrame(POPULATION[2].timetable[0], columns=TIME, index=dayNames)
+print(df_2)
+# df_2.to_csv('timetable_2.csv')
+# writer = pd.ExcelWriter('timetable_0.xlsx')
+# df_2.to_excel(writer)
+# writer.save()
 e = "e"
 while e != "":
     e = input('Press enter key to exit')
