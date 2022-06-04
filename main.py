@@ -3,39 +3,39 @@ import os
 import random
 import copy
 import numpy as np
+import math
 
 desired_width = 320
 pd.set_option('display.width', desired_width)
 np.set_printoptions(linewidth=desired_width)
 pd.set_option('display.max_columns', 10)
 
-COURSES = []
-FITNESS_CONDITIONS = []
 COURSES_NAME = ["Software Engineering", "Digital Image Processing", "Parallel & Dist Computing",
                 "Organizational Behaviour", "Artificial Intelligence"]
-
-for i in range(5):
-    COURSES.append([])
-
-
 CLASSROOMS = ["Seminar Hall", "CS-2", "CS-3", "CS-4", "CS-5", "CS-6", "CS-7", "CS-9", "CS-10", "CS-11",
-              "CS-15", "CS-16", "E&M-1",  "E&M-2", "E&M-3", "E&M-4", "E&M-5", "E&M-11", "CE-1", "CE-2",
+              "CS-15", "CS-16", "E&M-1", "E&M-2", "E&M-3", "E&M-4", "E&M-5", "E&M-11", "CE-1", "CE-2",
               "CE-3", "CS-1", "CS-8", "E&M-16", "English Lab-1", "English Lab-2", "English Lab-3",
               "English Lab-4", "Lab(CS-1)", "Lab(CS-2A)", "Lab(CS-2B)", "Lab(CS-4)", "Lab(CS-6)",
               "Lab(CS-8)", "Lab(CS-9)", "Physics Lab", "Micro Lab", "Physics Lab", "Micro Lab",
               "Embedded Lab"]
-
 TIME = ['8:30-10:00', '10:00-11:30', '11:30-1:00', '1:00-2:30', '2:30-4:00', '4:00-5:30', '5:30-7:00']
-df = pd.read_csv('Schedule.csv')
 dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-days = [0, 0, 0, 0, 0, 0]
-start = [0, 0, 0, 0, 0, 0]
+
+FITNESS_CONDITIONS = []
+COURSES = []
 POPULATION = []
 BUFFER = []
+DAYS = [0, 0, 0, 0, 0, 0]
+START = [0, 0, 0, 0, 0, 0]
 POPULATION_SIZE = 500
 BEST_FIT = 0.2
 CROSSOVER = 0.4
 MUTATION = 0.4
+
+for i in range(5):
+    COURSES.append([])
+
+df = pd.read_csv('Schedule.csv')
 
 
 def clear_console(): return os.system('cls')
@@ -47,12 +47,12 @@ def read_excel():
     while row < len(df):
         while row < len(df) and (str(df.iloc[row][0])).find(dayNames[index]) == -1:
             row += 1
-        start[index] = row
-        while row < len(df) and (str(df.iloc[row][0])).find(dayNames[index+1]) == -1:
-            days[index] += 1
+        START[index] = row
+        while row < len(df) and (str(df.iloc[row][0])).find(dayNames[index + 1]) == -1:
+            DAYS[index] += 1
             row += 1
         index += 1
-        if dayNames[index-1] == 'Saturday':
+        if dayNames[index - 1] == 'Saturday':
             break
 
 
@@ -74,11 +74,13 @@ def take_user_input():
     print('#3 for 3')
     consecutive = int(input('Option # '))
     FITNESS_CONDITIONS.append(consecutive)
+
     print('Choose last class time for the day')
     print('#0 for 4:00-5:30')
     print('#1 for 2:30-4:00')
     last = 6 - int(input('Option # '))
     FITNESS_CONDITIONS.append(last)
+
     print('Choose first class time for the day')
     print('#0 for 8:30-10:00')
     print('#1 for 10:00-11:30')
@@ -89,30 +91,28 @@ def take_user_input():
 
 def isnan(value):
     try:
-        import math
         return math.isnan(float(value))
     except:
         return False
 
 
 def filter_courses():
-    for _i in range(len(days)):
-        itreration = start[_i]
-        while itreration < start[_i] + days[_i] - 1:
+    for _i in range(len(DAYS)):
+        iteration = START[_i]
+        while iteration < START[_i] + DAYS[_i] - 1:
             course = 0
             check = 0
-            for j in (df.iloc[itreration]):
+            for j in (df.iloc[iteration]):
                 if not isnan(j):
                     if j not in CLASSROOMS and j.find(dayNames[_i]) == -1:
                         for k in range(len(COURSES_NAME)):
                             if j.find(COURSES_NAME[k]) != -1:
                                 if len(j) - len(COURSES_NAME[k]) <= 10:
-                                    course_data = j + " " + str(_i) + " " + str(course)
-                                    COURSES[k].append(course_data)
+                                    COURSES[k].append(j + " " + str(_i) + " " + str(course))
                 check += 1
                 if check % 9 == 0:
                     course += 1
-            itreration += 1
+            iteration += 1
 
 
 def combine():
@@ -120,11 +120,10 @@ def combine():
         avail = len(COURSES[_i])
         j = 0
         while j < avail:
-            section = COURSES[_i][j].split()[-3]
             k = j + 1
             while k < avail:
                 _split = COURSES[_i][k].split()
-                if _split[-3] == section:
+                if _split[-3] == COURSES[_i][j].split()[-3]:
                     COURSES[_i][j] += " " + _split[-2] + " " + _split[-1]
                     del COURSES[_i][k]
                     avail -= 1
@@ -136,12 +135,6 @@ class Sample:
     def __init__(self, timetable, fitness_val):
         self.timetable = timetable,
         self.fitness_val = fitness_val
-
-    def print_timetable(self):
-        print(TIME)
-        for _itr in self.timetable:
-            for course in _itr:
-                print(course)
 
     def remove_course_return_index(self, course_name):
         _days = []
@@ -155,16 +148,13 @@ class Sample:
                     index = 0
                     for course in time:
                         if course.find(course_name) != -1:
-                            _split = course.split()
-                            _section = _split[-1]
+                            _section = course.split()[-1]
                             _days.append(days_count)
                             _time.append(time_count)
                             del time[index]
-
                         index += 1
                     time_count += 1
                 days_count += 1
-
         return _days, _time, _section
 
     def __lt__(self, other):
@@ -176,13 +166,10 @@ class Sample:
 
 def calculate_fitness(tt):
     value = 0
-    days_off = FITNESS_CONDITIONS[0]
-    for _i in days_off:
+    for _i in FITNESS_CONDITIONS[0]:
         for j in tt[_i]:
             if len(j) != 0:
                 value += 500
-    classes = FITNESS_CONDITIONS[1]
-
     for _i in tt:
         consecutive = 0
         for j in _i:
@@ -190,22 +177,18 @@ def calculate_fitness(tt):
                 consecutive += 1
             else:
                 consecutive = 0
-            if consecutive > classes:
+            if consecutive > FITNESS_CONDITIONS[1]:
                 value += 2
             if len(j) > 1:
                 value += (500 * len(j))
-
-    max_time = FITNESS_CONDITIONS[2]
-    min_time = FITNESS_CONDITIONS[3]
     for _i in tt:
-        for j in range(max_time, 6):
+        for j in range(FITNESS_CONDITIONS[2], 6):
             if len(_i[j]) != 0:
                 value += 10
     for _i in tt:
-        for j in range(0, min_time):
+        for j in range(0, FITNESS_CONDITIONS[3]):
             if len(_i[j]) != 0:
                 value += 10
-
     return value
 
 
@@ -217,13 +200,11 @@ def generate_timetable():
             tt[_i].append([])
 
     for _i in range(5):
-        index = random.randint(0, len(COURSES[_i])-1)
-        _split = COURSES[_i][index].split()
+        _split = COURSES[_i][random.randint(0, len(COURSES[_i]) - 1)].split()
         j = 0
         course = ""
-        while j < len(_split) - 5:
+        for j in range(len(_split)-5):
             course += _split[j] + " "
-            j += 1
         course += _split[-5]
         tt[int(_split[-4])][int(_split[-3])].append(course)
         tt[int(_split[-2])][int(_split[-1])].append(course)
@@ -240,18 +221,17 @@ def generate_population():
 
 def filter_best_fit():
     BUFFER.clear()
-    for _i in range(int(BEST_FIT*POPULATION_SIZE)):
+    for _i in range(int(BEST_FIT * POPULATION_SIZE)):
         BUFFER.append(POPULATION[_i])
 
 
 def apply_crossover():
-    for _i in range(int(CROSSOVER*POPULATION_SIZE)):
+    for _i in range(int(CROSSOVER * POPULATION_SIZE)):
         # pick two parent samples at random
         parent_one = random.randint(0, POPULATION_SIZE // 2)
         parent_two = random.randint(parent_one + 1, POPULATION_SIZE - 1)
         # pick course to swap
-        course = COURSES_NAME[random.randint(0, (len(COURSES_NAME)-1))]
-
+        course = COURSES_NAME[random.randint(0, (len(COURSES_NAME) - 1))]
         child_1 = copy.deepcopy(POPULATION[parent_one])
         child_2 = copy.deepcopy(POPULATION[parent_two])
 
@@ -265,7 +245,7 @@ def apply_crossover():
 
 def apply_mutation():
     for _i in range(int(MUTATION * POPULATION_SIZE)):
-        course = COURSES_NAME[random.randint(0, (len(COURSES_NAME)-1))]
+        course = COURSES_NAME[random.randint(0, (len(COURSES_NAME) - 1))]
         # pick the sample on which you need to apply mutation on
         _parent = random.randint(0, POPULATION_SIZE - 1)
         mutant = copy.deepcopy(POPULATION[_parent])
@@ -275,14 +255,12 @@ def apply_mutation():
             if _itr[0].find(course) != -1:
                 break
             _index += 1
-        index = random.randint(0, (len(COURSES[_index])-1))
-
+        index = random.randint(0, (len(COURSES[_index]) - 1))
         _split = COURSES[_index][index].split()
         j = 0
         course = ""
-        while j < len(_split) - 5:
+        for j in range(len(_split)-5):
             course += _split[j] + " "
-            j += 1
         course += _split[-5]
         mutant.timetable[0][int(_split[-4])][int(_split[-3])].append(course)
         mutant.timetable[0][int(_split[-2])][int(_split[-1])].append(course)
@@ -304,14 +282,13 @@ filter_courses()
 combine()
 
 take_user_input()
-
 generate_population()
 POPULATION.sort()
+
 itr = 0
-
-
 clear_console()
 print('CALCULATING...')
+
 while POPULATION[0].fitness_val != 0 and itr < 100:
     # print(POPULATION[0].fitness_val, " Iteration : ", itr)
     filter_best_fit()
@@ -321,7 +298,6 @@ while POPULATION[0].fitness_val != 0 and itr < 100:
     POPULATION.sort()
     itr += 1
 
-
 clear_console()
 
 if POPULATION[0].fitness_val == 0:
@@ -329,31 +305,17 @@ if POPULATION[0].fitness_val == 0:
 else:
     print("Iteration Limit Reached (Best Samples)")
 
-
 df_0 = pd.DataFrame(POPULATION[0].timetable[0], columns=TIME, index=dayNames)
 print(df_0)
-# df_0.to_csv('timetable_0.csv')
-# writer = pd.ExcelWriter('timetable_0.xlsx')
-# df_0.to_excel(writer)
-# writer.save()
 print('------------------------------------------------------------------------------------------------'
       '------------------------------------------------------------------------------------------------')
 df_1 = pd.DataFrame(POPULATION[1].timetable[0], columns=TIME, index=dayNames)
 print(df_1)
-# df_1.to_csv('timetable_1.csv')
-# writer = pd.ExcelWriter('timetable_0.xlsx')
-# df_1.to_excel(writer)
-# writer.save()
 print('------------------------------------------------------------------------------------------------'
-      '4'
       '------------------------------------------------------------------------------------------------')
 
 df_2 = pd.DataFrame(POPULATION[2].timetable[0], columns=TIME, index=dayNames)
 print(df_2)
-# df_2.to_csv('timetable_2.csv')
-# writer = pd.ExcelWriter('timetable_0.xlsx')
-# df_2.to_excel(writer)
-# writer.save()
 e = "e"
 while e != "":
     e = input('Press enter key to exit')
